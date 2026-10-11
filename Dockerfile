@@ -3,7 +3,8 @@
 FROM ubuntu:24.04 AS extract
 WORKDIR /build
 COPY ChronAlert-x86_64.AppImage .
-RUN chmod +x ChronAlert-x86_64.AppImage && ./ChronAlert-x86_64.AppImage --appimage-extract >/dev/null
+RUN chmod +x ChronAlert-x86_64.AppImage && ./ChronAlert-x86_64.AppImage --appimage-extract >/dev/null \
+ && chmod -R a+rX squashfs-root  # extracted files are root-only; ChronAlert runs as 99:100
 
 FROM ubuntu:24.04
 ARG VERSION=unknown
