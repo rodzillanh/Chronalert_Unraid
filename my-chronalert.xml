@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>chronalert</Name>
+  <Repository>ghcr.io/rodzillanh/chronalert:latest</Repository>
+  <Registry/>
+  <Network>bridge</Network>
+  <Shell>sh</Shell>
+  <Privileged>false</Privileged>
+  <Project>https://github.com/rodzillanh/Chronalert_Unraid</Project>
+  <Overview>ChronAlert live situational-awareness dashboard, running headless in Docker. Open the WebUI on port 8420.</Overview>
+  <WebUI>http://[IP]:[PORT:8420]/</WebUI>
+  <Icon>/boot/config/plugins/dockerMan/images/chronalert-icon.png</Icon>
+  <Config Name="WebUI Port" Target="8420" Default="8420" Mode="tcp" Description="" Type="Port" Display="always" Required="true" Mask="false">8420</Config>
+  <Config Name="Data" Target="/data" Default="/mnt/user/appdata/chronalert" Mode="rw" Description="Settings, database and QSO log" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/chronalert</Config>
+</Container>
