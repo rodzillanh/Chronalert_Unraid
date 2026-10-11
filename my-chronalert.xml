@@ -6,10 +6,15 @@
   <Network>bridge</Network>
   <Shell>sh</Shell>
   <Privileged>false</Privileged>
+  <Support>https://chronalert.com/</Support>
   <Project>https://github.com/rodzillanh/Chronalert_Unraid</Project>
   <Overview>ChronAlert live situational-awareness dashboard, running headless in Docker. Open the WebUI on port 8420.</Overview>
+  <Category>Tools:</Category>
   <WebUI>http://[IP]:[PORT:8420]/</WebUI>
   <Icon>/boot/config/plugins/dockerMan/images/chronalert-icon.png</Icon>
-  <Config Name="WebUI Port" Target="8420" Default="8420" Mode="tcp" Description="" Type="Port" Display="always" Required="true" Mask="false">8420</Config>
+  <ExtraParams>--restart unless-stopped</ExtraParams>
+  <Config Name="WebUI Port" Target="8420" Default="8420" Mode="tcp" Description="Port for the ChronAlert web dashboard" Type="Port" Display="always" Required="true" Mask="false">8420</Config>
   <Config Name="Data" Target="/data" Default="/mnt/user/appdata/chronalert" Mode="rw" Description="Settings, database and QSO log" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/chronalert</Config>
+  <Config Name="PUID" Target="PUID" Default="99" Mode="" Description="User ID ChronAlert runs as (99 = nobody)" Type="Variable" Display="advanced" Required="false" Mask="false">99</Config>
+  <Config Name="PGID" Target="PGID" Default="100" Mode="" Description="Group ID ChronAlert runs as (100 = users)" Type="Variable" Display="advanced" Required="false" Mask="false">100</Config>
 </Container>

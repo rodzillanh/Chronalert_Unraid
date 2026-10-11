@@ -1,6 +1,7 @@
 # Checks chronalert.com daily for a new release. When the version on the
-# download page isn't on GHCR yet, downloads the AppImage, builds the image
-# and pushes it as both :<version> and :latest.
+# download page isn't on GHCR yet, downloads the AppImage, builds the image,
+# tests it and pushes it as both :<version> and :latest.
+# Pull requests build and test the image but never push it.
 name: Build and push ChronAlert image
 
 on:
@@ -12,6 +13,7 @@ on:
         description: Rebuild even if this version is already published
         type: boolean
         default: false
+  pull_request:
 
 permissions:
   contents: read
@@ -40,22 +42,28 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
       - uses: docker/login-action@v3
+        if: github.event_name != 'pull_request'
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Check whether this version is already published
+      - name: Decide whether to build and push
         id: check
         env:
           VERSION: ${{ steps.version.outputs.version }}
           FORCE: ${{ inputs.force }}
         run: |
-          if [ "$FORCE" != "true" ] && docker manifest inspect "$IMAGE:$VERSION" >/dev/null 2>&1; then
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            echo "Pull request: build and test only."
+            echo "build=true" >> "$GITHUB_OUTPUT"
+            echo "push=false" >> "$GITHUB_OUTPUT"
+          elif [ "$FORCE" != "true" ] && docker manifest inspect "$IMAGE:$VERSION" >/dev/null 2>&1; then
             echo "$IMAGE:$VERSION already exists, nothing to do."
             echo "build=false" >> "$GITHUB_OUTPUT"
           else
             echo "build=true" >> "$GITHUB_OUTPUT"
+            echo "push=true" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Download the AppImage
@@ -65,8 +73,54 @@ jobs:
       - uses: docker/setup-buildx-action@v3
         if: steps.check.outputs.build == 'true'
 
-      - uses: docker/build-push-action@v6
+      - name: Build
+        uses: docker/build-push-action@v6
         if: steps.check.outputs.build == 'true'
+        with:
+          context: .
+          load: true
+          build-args: VERSION=${{ steps.version.outputs.version }}
+          tags: chronalert:test
+
+      - name: Test the image
+        if: steps.check.outputs.build == 'true'
+        run: |
+          fail() { echo "::error::$1"; docker logs chronalert || true; exit 1; }
+
+          # Start with root-owned data, like an install from before the switch to 99:100
+          mkdir data
+          sudo touch data/existing-file
+          sudo chown -R root:root data
+
+          docker run -d --name chronalert -p 8420:8420 -v "$PWD/data:/data" chronalert:test
+
+          echo "Waiting for the health check to pass..."
+          for i in $(seq 1 36); do
+            status=$(docker inspect -f '{{.State.Health.Status}}' chronalert)
+            [ "$status" = healthy ] && break
+            [ "$(docker inspect -f '{{.State.Running}}' chronalert)" = true ] || fail "Container stopped"
+            sleep 5
+          done
+          [ "$status" = healthy ] || fail "Health check is '$status' after 3 minutes"
+          curl -sS -o /dev/null -w 'Dashboard answered with HTTP %{http_code}\n' http://127.0.0.1:8420/
+
+          docker top chronalert -eo uid,gid,args
+          docker top chronalert -eo uid,args | grep -qE '^\s*99\s+/opt/chronalert/chronalert' \
+            || fail "ChronAlert is not running as UID 99"
+          owner=$(stat -c %u:%g data/existing-file)
+          [ "$owner" = 99:100 ] || fail "Existing data is owned by $owner, expected 99:100"
+          ls -ln data
+
+          start=$(date +%s)
+          docker stop chronalert >/dev/null
+          took=$(( $(date +%s) - start ))
+          code=$(docker inspect -f '{{.State.ExitCode}}' chronalert)
+          echo "Stopped in ${took}s with exit code $code"
+          [ "$code" != 137 ] || fail "ChronAlert ignored the stop signal and had to be killed"
+
+      - name: Push
+        uses: docker/build-push-action@v6
+        if: steps.check.outputs.push == 'true'
         with:
           context: .
           push: true

@@ -12,11 +12,21 @@ The web dashboard is served on port **8420**.
 | File | Purpose |
 |------|---------|
 | `Dockerfile` | Extracts the AppImage at build time (no FUSE needed). Uses Ubuntu 24.04 because ChronAlert needs glibc 2.38+. |
+| `entrypoint.sh` | Fixes ownership of `/data`, then starts ChronAlert as user 99:100 (nobody:users) |
 | `my-chronalert.xml` | Unraid Docker template |
 | `chronalert-icon.png` | Icon for the Unraid Docker tab |
-| `.github/workflows/build.yml` | Builds and pushes the image automatically when a new ChronAlert release comes out |
+| `.github/workflows/build.yml` | Builds, tests and pushes the image automatically when a new ChronAlert release comes out |
 
-The AppImage itself is **not** stored in this repo (it's over GitHub's 100 MB file limit). The workflow downloads it from chronalert.com; for a manual build, keep it in the build folder on Unraid, next to the `Dockerfile`.
+The AppImage itself is **not** stored in this repo (it's over GitHub's 100 MB file limit). The workflow downloads it from chronalert.com; for a manual build, keep it in the build folder on Unraid, next to the `Dockerfile` and `entrypoint.sh`.
+
+## How the container runs
+
+- **As user 99:100 (nobody:users), not root,** so files in the data folder can be opened and backed up over the network share. On startup, any files in `/data` with a different owner are switched to 99:100, so data from older root-run versions is fixed automatically. To run as someone else, set `PUID` and `PGID` (under **Show more settings** when editing the container).
+- **Clean shutdown.** `tini` passes Docker's stop signal on to ChronAlert, so it can close `terra.db` before the container stops.
+- **Health check.** Every 30 seconds the container checks that the dashboard answers. If it stops answering, the Docker tab shows chronalert as *unhealthy*.
+- **Restarts after a crash** (`--restart unless-stopped` in the template).
+
+Every build is tested before it's pushed: GitHub starts the container, waits for the health check to pass, checks that it runs as 99:100 and fixed the ownership of existing data, and checks that it stops cleanly.
 
 ## Upgrading to a new ChronAlert release
 
@@ -30,7 +40,7 @@ Settings, the database and the QSO log in `/mnt/user/appdata/chronalert` are kep
 
 If the workflow can't run (for example, chronalert.com changes its download page), build on Unraid instead:
 
-1. **Copy in the new AppImage.** Put it in `\\tower\appdata\chronalert-build\`, replacing the old one. The file name must be exactly `ChronAlert-x86_64.AppImage`, so rename the download if needed.
+1. **Copy in the new AppImage.** Put it in `\\tower\appdata\chronalert-build\`, replacing the old one, along with the latest `Dockerfile` and `entrypoint.sh` from this repo. The AppImage's file name must be exactly `ChronAlert-x86_64.AppImage`, so rename the download if needed.
 
 2. **Build and push.** In the Unraid terminal, set `VERSION` to the new version number:
 
