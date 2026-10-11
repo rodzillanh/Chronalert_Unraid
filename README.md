@@ -12,11 +12,21 @@ The web dashboard is served on port **8420**.
 | File | Purpose |
 |------|---------|
 | `Dockerfile` | Extracts the AppImage at build time (no FUSE needed). Uses Ubuntu 24.04 because ChronAlert needs glibc 2.38+. |
+| `entrypoint.sh` | Fixes ownership of `/data`, then starts ChronAlert as user 99:100 (nobody:users) |
 | `my-chronalert.xml` | Unraid Docker template |
-| `chronalert-icon.png` | Icon for the Unraid Docker tab |
-| `.github/workflows/build.yml` | Builds and pushes the image automatically when a new ChronAlert release comes out |
+| `chronalert-icon.png` | Icon for the Unraid Docker tab (the template loads it from GitHub) |
+| `.github/workflows/build.yml` | Builds, tests and pushes the image automatically when a new ChronAlert release comes out |
 
-The AppImage itself is **not** stored in this repo (it's over GitHub's 100 MB file limit). The workflow downloads it from chronalert.com; for a manual build, keep it in the build folder on Unraid, next to the `Dockerfile`.
+The AppImage itself is **not** stored in this repo (it's over GitHub's 100 MB file limit). The workflow downloads it from chronalert.com; for a manual build, keep it in the build folder on Unraid, next to the `Dockerfile` and `entrypoint.sh`.
+
+## How the container runs
+
+- **As user 99:100 (nobody:users), not root,** so files in the data folder can be opened and backed up over the network share. On startup, any files in `/data` with a different owner are switched to 99:100, so data from older root-run versions is fixed automatically. To run as someone else, set `PUID` and `PGID` (under **Show more settings** when editing the container).
+- **Clean shutdown.** `tini` passes Docker's stop signal on to ChronAlert, so it can close `terra.db` before the container stops.
+- **Health check.** Every 30 seconds the container checks that the dashboard answers. If it stops answering, the Docker tab shows chronalert as *unhealthy*.
+- **Restarts after a crash** (`--restart unless-stopped` in the template).
+
+Every build is tested before it's pushed: GitHub starts the container, waits for the health check to pass, checks that it runs as 99:100 and fixed the ownership of existing data, and checks that it stops cleanly.
 
 ## Upgrading to a new ChronAlert release
 
@@ -30,7 +40,7 @@ Settings, the database and the QSO log in `/mnt/user/appdata/chronalert` are kep
 
 If the workflow can't run (for example, chronalert.com changes its download page), build on Unraid instead:
 
-1. **Copy in the new AppImage.** Put it in `\\tower\appdata\chronalert-build\`, replacing the old one. The file name must be exactly `ChronAlert-x86_64.AppImage`, so rename the download if needed.
+1. **Copy in the new AppImage.** Put it in `\\tower\appdata\chronalert-build\`, replacing the old one, along with the latest `Dockerfile` and `entrypoint.sh` from this repo. The AppImage's file name must be exactly `ChronAlert-x86_64.AppImage`, so rename the download if needed.
 
 2. **Build and push.** In the Unraid terminal, set `VERSION` to the new version number:
 
@@ -70,18 +80,20 @@ read -s -p "Token: " T && echo "$T" | docker login ghcr.io -u rodzillanh --passw
 bind 'set enable-bracketed-paste off'
 ```
 
-**Icon shows a question mark.** Make sure the icon exists at `/boot/config/plugins/dockerMan/images/chronalert-icon.png`, then run:
+**Icon shows a question mark.** The template loads the icon from GitHub. Clear Unraid's cached copy, then refresh the Docker tab:
 
 ```bash
-cp /boot/config/plugins/dockerMan/images/chronalert-icon.png /var/lib/docker/unraid/images/chronalert-icon.png
+rm -f /var/lib/docker/unraid/images/chronalert-icon.png
 ```
-
-and refresh the Docker tab.
 
 ## Fresh install on Unraid
 
-1. Copy `chronalert-icon.png` to `/boot/config/plugins/dockerMan/images/`.
-2. Copy `my-chronalert.xml` to `/boot/config/plugins/dockerMan/templates-user/`.
-3. Log in to ghcr.io (see Troubleshooting) so Unraid can pull the private image.
-4. Go to Docker → **Add Container** → Template: **chronalert** → **Apply**.
-5. Turn on **Autostart** for chronalert in the Docker tab.
+1. Download the template to Unraid's template folder:
+
+   ```bash
+   wget -O /boot/config/plugins/dockerMan/templates-user/my-chronalert.xml https://raw.githubusercontent.com/rodzillanh/Chronalert_Unraid/main/my-chronalert.xml
+   ```
+
+2. Log in to ghcr.io (see Troubleshooting) so Unraid can pull the private image.
+3. Go to Docker → **Add Container** → Template: **chronalert** → **Apply**.
+4. Turn on **Autostart** for chronalert in the Docker tab.

@@ -1,3 +1,4 @@
-# Only the AppImage is needed in the build context
+# Only these files are needed in the build context
 *
 !ChronAlert-x86_64.AppImage
+!entrypoint.sh
