@@ -3,7 +3,7 @@
 Runs the ChronAlert AppImage headless in a Docker container on Unraid.
 The web dashboard is served on port **8420**.
 
-- **Image:** `ghcr.io/rodzillanh/chronalert` (private)
+- **Image:** `ghcr.io/rodzillanh/chronalert` (public, so Unraid can pull it without logging in)
 - **Build folder on Unraid:** `/mnt/user/appdata/chronalert-build/` (`\\tower\appdata\chronalert-build\`)
 - **Data folder on Unraid:** `/mnt/user/appdata/chronalert/` (settings, `terra.db`, QSO log)
 
@@ -66,7 +66,7 @@ Change it back to `:latest` when you're ready to move forward again.
 
 ## Troubleshooting
 
-**`unauthorized` when pushing or pulling.** The GitHub login on Unraid has expired. Create a new token at GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic) with the `write:packages` scope, then log in again (the prompt hides what you paste):
+**`unauthorized` when pushing from Unraid** (manual builds only). The GitHub login on Unraid is missing or has expired. Create a new token at GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic) with the `write:packages` scope, then log in again (the prompt hides what you paste):
 
 ```bash
 read -s -p "Token: " T && echo "$T" | docker login ghcr.io -u rodzillanh --password-stdin; unset T
@@ -94,6 +94,5 @@ rm -f /var/lib/docker/unraid/images/chronalert-icon.png
    wget -O /boot/config/plugins/dockerMan/templates-user/my-chronalert.xml https://raw.githubusercontent.com/rodzillanh/Chronalert_Unraid/main/my-chronalert.xml
    ```
 
-2. Log in to ghcr.io (see Troubleshooting) so Unraid can pull the private image.
-3. Go to Docker → **Add Container** → Template: **chronalert** → **Apply**.
-4. Turn on **Autostart** for chronalert in the Docker tab.
+2. Go to Docker → **Add Container** → Template: **chronalert** → **Apply**.
+3. Turn on **Autostart** for chronalert in the Docker tab.
