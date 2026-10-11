@@ -11,7 +11,7 @@
   <Overview>ChronAlert live situational-awareness dashboard, running headless in Docker. Open the WebUI on port 8420.</Overview>
   <Category>Tools:</Category>
   <WebUI>http://[IP]:[PORT:8420]/</WebUI>
-  <Icon>/boot/config/plugins/dockerMan/images/chronalert-icon.png</Icon>
+  <Icon>https://raw.githubusercontent.com/rodzillanh/Chronalert_Unraid/main/chronalert-icon.png</Icon>
   <ExtraParams>--restart unless-stopped</ExtraParams>
   <Config Name="WebUI Port" Target="8420" Default="8420" Mode="tcp" Description="Port for the ChronAlert web dashboard" Type="Port" Display="always" Required="true" Mask="false">8420</Config>
   <Config Name="Data" Target="/data" Default="/mnt/user/appdata/chronalert" Mode="rw" Description="Settings, database and QSO log" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/chronalert</Config>
