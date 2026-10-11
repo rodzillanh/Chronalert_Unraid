@@ -104,8 +104,8 @@ jobs:
           [ "$status" = healthy ] || fail "Health check is '$status' after 3 minutes"
           curl -sS -o /dev/null -w 'Dashboard answered with HTTP %{http_code}\n' http://127.0.0.1:8420/
 
-          docker top chronalert -eo uid,gid,args
-          docker top chronalert -eo uid,args | grep -qE '^\s*99\s+/opt/chronalert/chronalert' \
+          docker top chronalert -eo pid,uid,gid,args
+          docker top chronalert -eo pid,uid,args | grep -qE '^\s*[0-9]+\s+99\s+/opt/chronalert/chronalert' \
             || fail "ChronAlert is not running as UID 99"
           owner=$(stat -c %u:%g data/existing-file)
           [ "$owner" = 99:100 ] || fail "Existing data is owned by $owner, expected 99:100"
