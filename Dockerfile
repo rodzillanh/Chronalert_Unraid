@@ -6,7 +6,9 @@ COPY ChronAlert-x86_64.AppImage .
 RUN chmod +x ChronAlert-x86_64.AppImage && ./ChronAlert-x86_64.AppImage --appimage-extract >/dev/null
 
 FROM ubuntu:24.04
-LABEL org.opencontainers.image.source=https://github.com/rodzillanh/Chronalert_Unraid
+ARG VERSION=unknown
+LABEL org.opencontainers.image.source=https://github.com/rodzillanh/Chronalert_Unraid \
+      org.opencontainers.image.version=$VERSION
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates tzdata \
  && rm -rf /var/lib/apt/lists/*
 COPY --from=extract /build/squashfs-root/usr/bin/chronalert /opt/chronalert

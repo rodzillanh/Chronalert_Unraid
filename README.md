@@ -14,10 +14,21 @@ The web dashboard is served on port **8420**.
 | `Dockerfile` | Extracts the AppImage at build time (no FUSE needed). Uses Ubuntu 24.04 because ChronAlert needs glibc 2.38+. |
 | `my-chronalert.xml` | Unraid Docker template |
 | `chronalert-icon.png` | Icon for the Unraid Docker tab |
+| `.github/workflows/build.yml` | Builds and pushes the image automatically when a new ChronAlert release comes out |
 
-The AppImage itself is **not** stored in this repo (it's over GitHub's 100 MB file limit). Keep it in the build folder on Unraid, next to the `Dockerfile`.
+The AppImage itself is **not** stored in this repo (it's over GitHub's 100 MB file limit). The workflow downloads it from chronalert.com; for a manual build, keep it in the build folder on Unraid, next to the `Dockerfile`.
 
 ## Upgrading to a new ChronAlert release
+
+Once a day, GitHub Actions reads the version on https://chronalert.com/download. If that version hasn't been pushed yet, it downloads the AppImage, builds the image and pushes it as `:<version>` and `:latest`. To check right away, go to the repo's **Actions** tab → **Build and push ChronAlert image** → **Run workflow** (tick *force* to rebuild a version that already exists).
+
+After a new version is pushed, update the container: in the Unraid **Docker** tab, click **Check for Updates** at the bottom, then click **apply update** on chronalert.
+
+Settings, the database and the QSO log in `/mnt/user/appdata/chronalert` are kept across upgrades.
+
+### Building manually on Unraid
+
+If the workflow can't run (for example, chronalert.com changes its download page), build on Unraid instead:
 
 1. **Copy in the new AppImage.** Put it in `\\tower\appdata\chronalert-build\`, replacing the old one. The file name must be exactly `ChronAlert-x86_64.AppImage`, so rename the download if needed.
 
@@ -26,14 +37,12 @@ The AppImage itself is **not** stored in this repo (it's over GitHub's 100 MB fi
    ```bash
    cd /mnt/user/appdata/chronalert-build
    VERSION=0.7.3
-   docker build -t ghcr.io/rodzillanh/chronalert:$VERSION -t ghcr.io/rodzillanh/chronalert:latest .
+   docker build --build-arg VERSION=$VERSION -t ghcr.io/rodzillanh/chronalert:$VERSION -t ghcr.io/rodzillanh/chronalert:latest .
    docker push ghcr.io/rodzillanh/chronalert:$VERSION
    docker push ghcr.io/rodzillanh/chronalert:latest
    ```
 
-3. **Update the container.** In the Unraid **Docker** tab, click **Check for Updates** at the bottom, then click **apply update** on chronalert.
-
-Settings, the database and the QSO log in `/mnt/user/appdata/chronalert` are kept across upgrades.
+3. **Update the container** as above.
 
 ## Rolling back
 
@@ -52,6 +61,8 @@ Change it back to `:latest` when you're ready to move forward again.
 ```bash
 read -s -p "Token: " T && echo "$T" | docker login ghcr.io -u rodzillanh --password-stdin; unset T
 ```
+
+**The workflow fails with `denied` or `permission_denied` on push.** The image was first pushed from Unraid, so the repo's workflow may not have write access to it. On GitHub, open your profile → **Packages** → **chronalert** → **Package settings** → **Manage Actions access** → **Add repository** → `Chronalert_Unraid`, set the role to **Write**, and run the workflow again.
 
 **Pasted commands start with `^[[200~` and fail.** Press Ctrl+C, run this, then paste again:
 

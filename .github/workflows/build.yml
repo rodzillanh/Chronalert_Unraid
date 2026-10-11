@@ -1,0 +1,76 @@
+# Checks chronalert.com daily for a new release. When the version on the
+# download page isn't on GHCR yet, downloads the AppImage, builds the image
+# and pushes it as both :<version> and :latest.
+name: Build and push ChronAlert image
+
+on:
+  schedule:
+    - cron: "17 9 * * *"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: Rebuild even if this version is already published
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE: ghcr.io/rodzillanh/chronalert
+  DOWNLOAD_PAGE: https://chronalert.com/download
+  APPIMAGE_URL: https://chronalert.com/download/ChronAlert-x86_64.AppImage
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Find the current ChronAlert version
+        id: version
+        run: |
+          version=$(curl -fsSL "$DOWNLOAD_PAGE" | grep -oE 'Version [0-9]+\.[0-9]+\.[0-9]+' | head -1 | cut -d' ' -f2)
+          if [ -z "$version" ]; then
+            echo "::error::Couldn't find 'Version x.y.z' on $DOWNLOAD_PAGE"
+            exit 1
+          fi
+          echo "Current version: $version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check whether this version is already published
+        id: check
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          FORCE: ${{ inputs.force }}
+        run: |
+          if [ "$FORCE" != "true" ] && docker manifest inspect "$IMAGE:$VERSION" >/dev/null 2>&1; then
+            echo "$IMAGE:$VERSION already exists, nothing to do."
+            echo "build=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Download the AppImage
+        if: steps.check.outputs.build == 'true'
+        run: curl -fsSL -o ChronAlert-x86_64.AppImage "$APPIMAGE_URL"
+
+      - uses: docker/setup-buildx-action@v3
+        if: steps.check.outputs.build == 'true'
+
+      - uses: docker/build-push-action@v6
+        if: steps.check.outputs.build == 'true'
+        with:
+          context: .
+          push: true
+          build-args: VERSION=${{ steps.version.outputs.version }}
+          tags: |
+            ${{ env.IMAGE }}:${{ steps.version.outputs.version }}
+            ${{ env.IMAGE }}:latest
